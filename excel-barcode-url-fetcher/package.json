@@ -1,0 +1,15 @@
+{
+  "name": "excel-barcode-url-fetcher",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "start": "node getImageUrls.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "puppeteer": "^23.3.1",
+    "xlsx": "^0.18.5"
+  }
+}
