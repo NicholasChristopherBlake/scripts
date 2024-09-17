@@ -29,15 +29,6 @@ function getTimestamp() {
   return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
 }
 
-// Helper function to extract base64 data
-function extractBase64Data(base64Data) {
-  const matches = base64Data.match(/^data:(.+);base64,(.+)$/);
-  if (matches && matches.length === 3) {
-    return matches[2];
-  }
-  return null;
-}
-
 // Function to decode base64 to actual image for saving
 function base64ToImage(base64Data, filePath) {
   const base64Image = base64Data.split(";base64,").pop();
