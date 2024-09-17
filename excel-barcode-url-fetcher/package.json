@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "exceljs": "^4.4.0",
     "puppeteer": "^23.3.1",
     "xlsx": "^0.18.5"
   }
