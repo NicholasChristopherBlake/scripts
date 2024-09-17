@@ -53,3 +53,8 @@ The main problem was with how Google shows the links to the image's origin. For 
 
 Also, we need to additionally wait for 4 seconds for the page to fully load to get the image's url.
 And to mimic user's behaviour there are also some delays between queries and during query.
+
+## Libraries
+
+- **ExcelJS** and **xlsx** for working with Excel tables. ExcelJS being more advanced one and allowing us to add images into Excel table.
+- **Puppeteer** for making search requests in browser and getting the data
