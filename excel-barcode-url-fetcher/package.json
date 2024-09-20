@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "start": "node getImageUrls.js"
+    "start": "node getImageUrls.js",
+    "start-leroy": "node getLeroyInfo.js"
   },
   "keywords": [],
   "author": "",
