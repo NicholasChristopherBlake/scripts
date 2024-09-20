@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const ExcelJS = require("exceljs"); // Import exceljs
 
-// Define the folder and file name
+// Define the output folder and file name
 const folderPath = path.join(__dirname, "leroy_data");
 // Create the 'leroy_data' folder if it does not exist
 if (!fs.existsSync(folderPath)) {
@@ -15,6 +15,14 @@ if (!fs.existsSync(folderPath)) {
 const filePath = path.join(__dirname, "leroy_data", "test_data.xlsx");
 const workbook = XLSX.readFile(filePath);
 const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+// Create a new Excel workbook and worksheet
+const excelWorkbook = new ExcelJS.Workbook();
+const excelWorksheet = excelWorkbook.addWorksheet("With Leroy Info");
+
+const outputFilePath = path.join(folderPath, "leroy_data_with_info.xlsx");
+// For correctly applying link columns
+let maxLinks = 0;
 
 // Get item numbers from the first column, starting from the second row
 const itemCodes = XLSX.utils
@@ -69,6 +77,82 @@ async function navigateWithRetry(page, url, retries = 3) {
     }
   }
 }
+
+async function saveExcelFile(excelWorkbook, outputFilePath) {
+  await waitForFile(outputFilePath);
+  await excelWorkbook.xlsx.writeFile(outputFilePath);
+  console.log(`Excel file saved to ${outputFilePath}`);
+}
+
+// Function to apply borders to all cells
+function applyBorders(worksheet) {
+  worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" },
+      };
+    });
+  });
+}
+
+// Function to format link columns
+function formatLinkColumns(excelWorksheet, maxLinks) {
+  for (let i = 1; i <= maxLinks; i++) {
+    const columnIndex = i + 2; // Link columns start from index 2 (0-based index)
+    excelWorksheet.getColumn(columnIndex).header = `Link ${i}`; // Set dynamic header
+    excelWorksheet.getColumn(columnIndex).alignment = {
+      wrapText: true,
+      vertical: "top",
+      horizontal: "left",
+    };
+    excelWorksheet.getColumn(columnIndex).width = 10; // Adjust width as needed
+  }
+}
+
+// Function to clean up and save
+async function cleanupAndSave(
+  excelWorkbook,
+  excelWorksheet,
+  outputFilePath,
+  maxLinks
+) {
+  if (excelWorksheet) {
+    formatLinkColumns(excelWorksheet, maxLinks);
+    applyBorders(excelWorksheet);
+    // Save the Excel file finally
+    await saveExcelFile(excelWorkbook, outputFilePath);
+    console.log(
+      "Query finished. File has been successfully saved during cleanup"
+    );
+  }
+}
+
+// let isCleaningUp = false; // Flag to avoid double cleanup
+
+// // Signal handler for cleanup on Ctrl+C
+// process.on("SIGINT", async () => {
+//   if (isCleaningUp) return; // If cleanup is already in progress, skip
+//   isCleaningUp = true;
+//   console.log("Caught interrupt signal (Ctrl+C). Cleaning up...");
+//   try {
+//     console.log("Cleanup started.");
+//     await cleanupAndSave(
+//       excelWorkbook,
+//       excelWorksheet,
+//       outputFilePath,
+//       maxLinks
+//     );
+//     console.log("Cleanup completed.");
+//   } catch (error) {
+//     console.error("Error during cleanup:", error);
+//   } finally {
+//     isCleaningUp = false;
+//     process.exit(0); // Only exit after everything is done
+//   }
+// });
 
 // Function to generate a random delay between 3-10 seconds
 function delay(ms) {
@@ -159,7 +243,31 @@ async function processItemCodes(itemCodes) {
   // Start total timer
   const totalStartTime = Date.now();
 
+  // Add static headers
+  let excelColumns = [
+    {
+      header: "Item Code",
+      key: "item_code",
+      width: 10,
+      style: {
+        alignment: { vertical: "top", horizontal: "left" },
+      },
+    },
+    {
+      header: "Description",
+      key: "description",
+      width: 160,
+      style: {
+        alignment: { wrapText: true, vertical: "top", horizontal: "left" },
+      },
+    },
+  ];
+
+  // Set columns to the worksheet
+  excelWorksheet.columns = excelColumns;
+
   for (const itemCode of itemCodes) {
+    // Get info for one item code
     if (!itemCode) {
       leroyInfo.push([itemCode, "No item code"]);
       continue;
@@ -181,6 +289,23 @@ async function processItemCodes(itemCodes) {
           ?.toString()
           ?.substring(0, 10)}, Image Links: ${imgLinks?.length}`
       );
+
+      // Add the data to Excel after each call
+      const rowData = [itemCode, description];
+      // Add each link from the imgLinks array to the rowData
+      if (imgLinks) {
+        // Count the maximum number of links
+        if (imgLinks.length > maxLinks) {
+          maxLinks = imgLinks.length;
+        }
+        for (let i = 0; i < imgLinks.length; i++) {
+          rowData.push(imgLinks[i] || ""); // Add the link or an empty string if no link
+        }
+        const row = excelWorksheet.addRow(rowData);
+        row.height = 220;
+      }
+      // Save the Excel file after each iteration
+      await saveExcelFile(excelWorkbook, outputFilePath);
     } catch (e) {
       console.error(`Error processing item code ${itemCode}:`, e);
       leroyInfo.push([itemCode, "Error", "Error"]);
@@ -213,80 +338,7 @@ async function processItemCodes(itemCodes) {
   const totalDuration = ((totalEndTime - totalStartTime) / 1000).toFixed(1);
   console.log(`Total time for querying: ${totalDuration} seconds`);
 
-  // Create a new Excel workbook and worksheet
-  const excelWorkbook = new ExcelJS.Workbook();
-  const excelWorksheet = excelWorkbook.addWorksheet("With Leroy Info");
-
-  // Add static headers
-  let excelColumns = [
-    {
-      header: "Item Code",
-      key: "item_code",
-      width: 10,
-      style: {
-        alignment: { vertical: "top", horizontal: "left" },
-      },
-    },
-    {
-      header: "Description",
-      key: "description",
-      width: 160,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" },
-      },
-    },
-  ];
-
-  // Assuming that leroyInfo contains data in the form: [itemCode, description, imgLinks]
-  let maxLinks = 0;
-
-  // Find the maximum number of links in the dataset to determine how many columns to create
-  for (const [itemCode, description, imgLinks] of leroyInfo) {
-    if (imgLinks && imgLinks.length > maxLinks) {
-      maxLinks = imgLinks.length;
-    }
-  }
-
-  // Add dynamic headers for each link
-  for (let i = 1; i <= maxLinks; i++) {
-    excelColumns.push({
-      header: `Link ${i}`, // Dynamic header for link1, link2, etc.
-      key: `link${i}`,
-      width: 13,
-      style: {
-        alignment: { wrapText: true, vertical: "top", horizontal: "left" },
-      },
-    });
-  }
-
-  // Set columns to the worksheet
-  excelWorksheet.columns = excelColumns;
-
-  // Add rows and embed images
-  for (const [itemCode, description, imgLinks] of leroyInfo) {
-    const rowData = [itemCode, description];
-    // Add each link from the imgLinks array to the rowData
-    if (imgLinks) {
-      for (let i = 0; i < maxLinks; i++) {
-        rowData.push(imgLinks[i] || ""); // Add the link or an empty string if no link
-      }
-      const row = excelWorksheet.addRow(rowData);
-      row.height = 220;
-    }
-  }
-
-  // Get the file's path
-  const outputFilePath = path.join(
-    __dirname,
-    "leroy_data",
-    "leroy_data_with_info.xlsx"
-  );
-
-  // Wait until the file is available (i.e., not open in Excel)
-  await waitForFile(outputFilePath);
-
-  await excelWorkbook.xlsx.writeFile(outputFilePath);
-  console.log(`New excel data saved to ${outputFilePath}`);
+  await cleanupAndSave(excelWorkbook, excelWorksheet, outputFilePath, maxLinks);
 
   // IMPORTANT! Close browser at the end
   await page.close();
