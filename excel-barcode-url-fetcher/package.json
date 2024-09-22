@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node getImageUrls.js",
     "start-leroy": "node getLeroyInfo.js",
-    "start-lemana": "node getLemanaInfo.js"
+    "start-lemana": "node getLemanaInfo.js",
+    "start-leroy-char": "node getLeroyChar.js"
   },
   "keywords": [],
   "author": "",
