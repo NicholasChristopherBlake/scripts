@@ -4,7 +4,8 @@
   "description": "",
   "scripts": {
     "start": "node getImageUrls.js",
-    "start-leroy": "node getLeroyInfo.js"
+    "start-leroy": "node getLeroyInfo.js",
+    "start-lemana": "node getLemanaInfo.js"
   },
   "keywords": [],
   "author": "",
