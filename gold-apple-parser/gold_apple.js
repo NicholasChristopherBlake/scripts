@@ -5,50 +5,58 @@ const { categories, folderPath, linksFilePath, infoFilePath } = require("./util/
 const { waitForDelay } = require('./util/browserUtils')
 const { ensureFolderExists, saveExcelFile } = require("./util/fileUtils");
 
-async function fetchAndParseProductInfo(product_url) {
-  try {
-    const response = await axios.get(product_url);
-
-    const $ = cheerio.load(response.data); // Loads the HTML into cheerio for parsing
-    
-    let subcategory = $('div.-lCwe').text() || '';
-    subcategory = subcategory.replace(/\s+/g, ' ').trim();
-    let name = $('h1.b8mg8').text() || '';
-    name = name.replace(/\s+/g, ' ').trim();
-    let price = $('div[itemprop="priceSpecification"] meta[itemprop="price"]').attr('content') || '';
-    price = price.replace(/\s+/g, ' ').trim();
-
-    // Loop through each <picture> element
-    const photo_links = [];
-
-    $('picture.ga-image-responsive').each((index, pictureElement) => {
-        // For each <picture>, find all the <source> elements inside it
-        $(pictureElement).find('img').each((imgIndex, imgElement) => {
-          const src = $(imgElement).attr('src');
-          photo_links.push(src);
+async function fetchAndParseProductInfo(product_url, retries = 3, delay = 3000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await axios.get(product_url);
+  
+      const $ = cheerio.load(response.data); // Loads the HTML into cheerio for parsing
+      
+      let subcategory = $('div.-lCwe').text() || '';
+      subcategory = subcategory.replace(/\s+/g, ' ').trim();
+      let name = $('h1.b8mg8').text() || '';
+      name = name.replace(/\s+/g, ' ').trim();
+      let price = $('div[itemprop="offers"]').children().first().text() || '';
+      price = price.replace(/\s+/g, ' ').trim();
+  
+      // Loop through each <picture> element
+      const photo_links = [];
+  
+      $('picture.ga-image-responsive').each((index, pictureElement) => {
+          // For each <picture>, find all the <source> elements inside it
+          $(pictureElement).find('img').each((imgIndex, imgElement) => {
+            const src = $(imgElement).attr('src');
+            photo_links.push(src);
+        });
       });
-    });
-
-    let article = $('div[text="описание"] div.Zfnvl').text() || '';
-    article = article.replace(/\s+/g, ' ').trim();
-    const description = $('div[itemprop="description"]').text() || '';
-    let brand = $('div[text="о бренде"] div.eqBV8').text() || '';
-    brand = brand.replace(/\s+/g, ' ').trim();
-
-    let volume = $('div.apH9h').text() || '';
-    volume = volume.replace(/\s+/g, ' ').trim();
-
-    const hasVolumeVariants = $('div[role="radio-group"]').length > 0;
-    const shade = $('div.eXXzH').text() || '';
-    const hasShadeVariants = $('.ga-select__box-content').length > 0;
-
-    return { subcategory, name, price, photo_links, article, description, brand, volume, hasVolumeVariants, shade, hasShadeVariants };
-  } catch (error) {
-    console.error(`Error fetching or parsing HTML ${product_url}`, error);
+  
+      let article = $('div[text="описание"] div.Zfnvl').text() || '';
+      article = article.replace(/\s+/g, ' ').trim();
+      const description = $('div[itemprop="description"]').text() || '';
+      let brand = $('div[text="о бренде"] div.eqBV8').text() || '';
+      brand = brand.replace(/\s+/g, ' ').trim();
+  
+      let volume = $('div.apH9h').text() || '';
+      volume = volume.replace(/\s+/g, ' ').trim();
+  
+      const hasVolumeVariants = $('div[role="radio-group"]').length > 0;
+      const shade = $('div.eXXzH').text() || '';
+      const hasShadeVariants = $('.ga-select__box-content').length > 0;
+  
+      // console.log (subcategory, name, price, photo_links, article, description, brand, volume, hasVolumeVariants, shade, hasShadeVariants);
+      return { subcategory, name, price, photo_links, article, description, brand, volume, hasVolumeVariants, shade, hasShadeVariants };
+    } catch (error) {
+      if (i === retries - 1) {
+        console.error(`Error fetching or parsing HTML ${product_url}`, error);
+        return {}; // when there's an error
+      } // No retries left
+      console.log(`Retrying... (${i + 1}/${retries})`)
+      await new Promise((resolve) => setTimeout(resolve, delay)); // Delay before retry
+    }
   }
 }
 
-async function fetchAndParseAllCategoryProducts(category) {
+async function fetchAndParseAllCategoryProducts(category, min = 'all', max = 'all') {
   console.log(`Starting to fetch category ${category.description}`);
   ensureFolderExists(folderPath);
 
@@ -92,15 +100,50 @@ async function fetchAndParseAllCategoryProducts(category) {
     }
   });
 
-  console.log(`В категории ${category.description} всего ${allLinks.length} ссылок`);
+  // Логика с промежутком ссылок
+  let startingIndex = 1;
+  let endingIndex = allLinks.length;
+  if (min !== 'all' && typeof min !== 'number') {
+    throw new Error('Вы ввели неправильные данные, первый индекс должен быть числом');
+  }
+  if (max !== 'all' && typeof max !== 'number') {
+    throw new Error('Вы ввели неправильные данные, второй индекс должен быть числом');
+  }
+  if (min < 0 || max < 0) {
+    throw new Error('Вы ввели неправильные данные, индексы не могут быть отрицательными');
+  }
+  if (max < min) {
+    throw new Error('Вы ввели неправильные данные, первый индекс должен быть меньше, чем второй');
+  }
+  if (min !== 'all') {
+    startingIndex = min;
+  }
+  if (max !== 'all') {
+    endingIndex = max;
+  }
+  if (min === 0) {
+    startingIndex = 1;
+  }
+  if (max > allLinks.length) {
+    endingIndex = allLinks.length;
+  }
 
-  for (let index = 0; index < allLinks.length; index++) {
+  console.log(`В категории ${category.description} всего ${allLinks.length} ссылок`);
+  console.log(`Поиск ведется с ${startingIndex} по ${endingIndex} ссылку`);
+
+  for (let index = startingIndex - 1; index < endingIndex; index++) {
     const link = allLinks[index];
     console.log(link);
     const parsedInfo = await fetchAndParseProductInfo(link);
+    if (!parsedInfo || Object.keys(parsedInfo).length === 0) {
+      console.log(`Skipping ${link} due to errors`);
+      resultWorksheet.getCell(`A${index + 2}`).value = link;
+      continue;
+    }
     const { subcategory, name, price, photo_links, article, description, brand, volume, hasVolumeVariants, shade, hasShadeVariants } = parsedInfo;
     
-    await waitForDelay(1000);
+    // Задержка между запросами
+    await waitForDelay(1500);
 
     resultWorksheet.getCell(`A${index + 2}`).value = link;
     resultWorksheet.getCell(`B${index + 2}`).value = subcategory;
@@ -121,4 +164,8 @@ async function fetchAndParseAllCategoryProducts(category) {
   console.log(`Поиск по категории ${category.description} завершен`);
 }
 
-fetchAndParseAllCategoryProducts(categories[14]);
+// Для тестирования по отдельной странице
+// fetchAndParseProductInfo('https://goldapple.kz/19000019565-promise-hair-mist');
+// fetchAndParseAllCategoryProducts(categories[14]);
+
+fetchAndParseAllCategoryProducts(categories[14], 1, 1000);
