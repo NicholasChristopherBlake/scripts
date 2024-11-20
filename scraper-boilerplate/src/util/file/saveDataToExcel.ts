@@ -1,7 +1,6 @@
 import ExcelJS from "exceljs";
 import path from "path";
 import { ensureFileExists } from "./ensureFileExists";
-import { waitForFile } from "./waitForFile";
 import { saveExcelFile } from "./saveExcelFile";
 
 /**

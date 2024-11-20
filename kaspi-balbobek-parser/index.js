@@ -35,14 +35,6 @@ const requestHeaders2 = {
   "sec-ch-ua-platform": '"Windows"',
 };
 
-const requestHeaders3 = {
-  Accept: "application/json, text/*",
-  "Accept-Encoding": "gzip, compress, deflate, br",
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-  Referer: "https://kaspi.kz/shop/search/?q=%3AallMerchants%3A11208010&page=13",
-};
-
 const requestHeaders4 = {
   Accept: "application/json, text/*",
   "Accept-Encoding": "gzip, deflate, br, zstd",

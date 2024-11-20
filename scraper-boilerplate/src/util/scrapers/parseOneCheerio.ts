@@ -2,7 +2,7 @@ import axios from "axios";
 import cheerio from "cheerio";
 
 // Интерфейсы для типизации
-interface ScraperResult {
+export interface ParseResult {
   title: string;
   links: string[];
   error?: string;
@@ -11,9 +11,9 @@ interface ScraperResult {
 /**
  * Функция для парсинга данных с указанного URL.
  * @param {string} url - URL страницы для парсинга.
- * @returns {Promise<ScraperResult>} - Объект с результатами парсинга.
+ * @returns {Promise<ParseResult>} - Объект с результатами парсинга.
  */
-export async function parseOne(url: string): Promise<ScraperResult> {
+export async function parseOne(url: string): Promise<ParseResult> {
   // Случайные user agents для обхода блокировки
   const userAgents = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -34,8 +34,11 @@ export async function parseOne(url: string): Promise<ScraperResult> {
   };
 
   try {
+    console.log(`Обрабатываем url: ${url}`);
     // Отправляем GET-запрос к URL
-    const { data } = await axios.get(url, { headers });
+    const response = await axios.get(url, { headers });
+    console.log(response);
+    const data = response.data;
 
     // Загружаем HTML в Cheerio
     const $ = cheerio.load(data);
